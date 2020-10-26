@@ -1,5 +1,5 @@
 import { DIFFICULTY, HEIGHT, PONY_NAME, WIDTH } from './config';
-import { getAvailableRoute } from './mechanics';
+import { getAvailableRoute, PonyMove } from './mechanics';
 import {
   createMaze,
   CreateMazeData,
@@ -60,108 +60,107 @@ const startGame = async () => {
   // create maze, using `mazeData`
   const { maze_id } = await createMaze(mazeData);
 
-  // status flags
+  // loop exit flag
   let done = false;
-  let won = false;
-  // hold prevRoute for playtolose case
-  let prevAvailableRoute: ReturnType<typeof getAvailableRoute> = false;
+  // move counter
+  let moveCount = 1;
+  // hold route in progress, for reuse if still good or keep going even if domokun is coming
+  let ongoingRoute: ReturnType<typeof getAvailableRoute> = false;
 
   do {
-    // load mazePrint & mazeData
+    // load maze data & print
+    const mazePromise = getMazeData(maze_id);
     const mazePrintPromise = getMazePrint(maze_id);
-    const mazeDataPromise = getMazeData(maze_id);
-    const [mazePrint, mazeData] = await Promise.all([
+    const [maze, mazePrint] = await Promise.all([
+      mazePromise,
       mazePrintPromise,
-      mazeDataPromise,
     ]);
 
-    const { pony, domokun, data, size } = mazeData;
+    // store variables used for finding a route
+    const ponyPos = maze.pony[0];
+    const domokunPos = maze.domokun[0];
+    const winPos = maze['end-point'][0];
+    const mazeWidth = maze.size[0];
+    const mazeHeight = maze.size[1];
 
-    // calculate route
-    const availableRoute = getAvailableRoute({
-      ponyPos: pony[0],
-      domokunPos: domokun[0],
-      mazeWidth: size[0],
-      mazeHeight: size[1],
-      mazeData: data,
-      currentRoute: [],
-      winPos: mazeData['end-point'][0],
-    });
+    let domokunOnPath = false;
+    if (ongoingRoute) {
+      // slice last step
+      ongoingRoute = ongoingRoute.slice(1);
+      // domokunPos matches one of ongoingRoute position
+      domokunOnPath = ongoingRoute.some(
+        (routeMove) => routeMove.position === domokunPos
+      );
+    }
 
-    // save prevRoute
-    if (availableRoute) prevAvailableRoute = availableRoute;
+    let route: ReturnType<typeof getAvailableRoute>;
+
+    // use last route if domokun not in the way for performance
+    if (ongoingRoute && !domokunOnPath) {
+      route = ongoingRoute;
+    } else {
+      // calculate route
+      route = getAvailableRoute({
+        ponyPos,
+        domokunPos,
+        winPos,
+        mazeWidth,
+        mazeHeight,
+        mazeData: maze.data,
+        currentRoute: [],
+      });
+
+      // save this route
+      if (route) ongoingRoute = route;
+    }
 
     // display maze
     const enchancedPrint = enchanceMazePrint({
       mazePrint,
-      mazeWidth: size[0],
-      route: availableRoute || prevAvailableRoute,
+      mazeWidth,
+      route: route || ongoingRoute,
+      routeMoji: domokunOnPath ? '📍' : undefined,
     });
     showMaze(enchancedPrint);
 
-    // game kaput
-    if (!availableRoute) {
-      if (!prevAvailableRoute) {
+    // first try, no avaiable route
+    if (!route && !ongoingRoute) {
+      // try to find a route ignoring the domokun presence, maybe he misses the path;
+      // this actually happens on lower difficulty 😛
+      ongoingRoute = getAvailableRoute({
+        ponyPos,
+        domokunPos: -1,
+        winPos,
+        mazeWidth,
+        mazeHeight,
+        mazeData: maze.data,
+        currentRoute: [],
+      });
+
+      // pony is locked from the beginning
+      if (!ongoingRoute) {
         console.log('\n😢 LOST! No available route..\n');
         return;
       }
-
-      // we followed a route, but the domobastard is gonna catch us
-      // go to predictable death
-      const enchanced = enchanceMazePrint({
-        mazePrint,
-        mazeWidth: size[0],
-        // remaining route in red moji
-        route: prevAvailableRoute.slice(1),
-        routeMoji: '📍',
-      });
-      showMaze(enchanced);
-
-      console.log('\n😢 LOST! Will keep playing until caught..');
-      await new Promise((r) => setTimeout(r, 2000));
-
-      // do route moves until caught
-      for (let i = 1; i < prevAvailableRoute.length; i++) {
-        const move = prevAvailableRoute[i];
-        console.log(`\nMove:`, move);
-
-        await new Promise((r) => setTimeout(r, 100));
-        // make a move
-        const moveRes = await createMove(maze_id, move.direction);
-
-        // update done status
-        done = moveRes.state !== 'active';
-
-        const print = await getMazePrint(maze_id);
-        const enchancedP = enchanceMazePrint({
-          mazePrint: print,
-          mazeWidth: size[0],
-          route: prevAvailableRoute.slice(i + 1),
-          routeMoji: '📍',
-        });
-        showMaze(enchancedP);
-
-        console.log('\n😢 LOST!');
-        if (done) return;
-      }
-
-      return;
     }
 
-    // still going good
-    console.log(`\nMove:`, availableRoute[0]);
-    await new Promise((r) => setTimeout(r, 120));
-
     // make a move
-    const moveRes = await createMove(maze_id, availableRoute[0].direction);
+    // @ts-ignore
+    const move: PonyMove = (route || ongoingRoute)[0];
+    console.log(`\nMove ${moveCount}:`, move);
+    await new Promise((r) => setTimeout(r, 150));
+    const moveRes = await createMove(maze_id, move.direction);
+    moveCount += 1; // increment move count
 
     // update status
     done = moveRes.state !== 'active';
-    won = done && moveRes['state-result'] !== 'Move accepted';
-  } while (!done);
 
-  console.log(won ? '\n🎉 WON!!\n' : '\n😢 LOST!\n');
+    if (done) {
+      const won = moveRes.state === 'won';
+      console.log(won ? '\n🎉 WON!!\n' : '\n😢 LOST!\n');
+    }
+  } while (!done);
 };
 
-// start().catch(handleGameError);
+// startGame().catch(handleGameError);
 init();
