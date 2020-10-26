@@ -67,6 +67,7 @@ const startGame = async () => {
   // hold route in progress, for reuse if still good or keep going even if domokun is coming
   let ongoingRoute: ReturnType<typeof getAvailableRoute> = false;
 
+  // gameplay looop
   do {
     // load maze data & print
     const mazePromise = getMazeData(maze_id);
@@ -119,6 +120,7 @@ const startGame = async () => {
       mazePrint,
       mazeWidth,
       route: route || ongoingRoute,
+      // show red pin if going straight to domokun
       routeMoji: domokunOnPath ? '📍' : undefined,
     });
     showMaze(enchancedPrint);
@@ -145,7 +147,7 @@ const startGame = async () => {
     }
 
     // make a move
-    // @ts-ignore
+    // @ts-ignore, one of them is defined u ts bastard
     const move: PonyMove = (route || ongoingRoute)[0];
     console.log(`\nMove ${moveCount}:`, move);
     await new Promise((r) => setTimeout(r, 150));
@@ -155,6 +157,7 @@ const startGame = async () => {
     // update status
     done = moveRes.state !== 'active';
 
+    // check win status
     if (done) {
       const won = moveRes.state === 'won';
       console.log(won ? '\n🎉 WON!!\n' : '\n😢 LOST!\n');
