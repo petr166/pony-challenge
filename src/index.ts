@@ -39,6 +39,7 @@ const handleGameError = (err: any) => {
 
 /** Shows game menu */
 const init = () => {
+  // PLAY callback
   const onPlay = () =>
     startGame()
       .then(() => showAgainPromt())
@@ -46,6 +47,7 @@ const init = () => {
       .then((again) => again && init())
       .catch(handleGameError);
 
+  // ui
   showGameMenu({
     onPlay,
     onSettingsChange: setMazeData,
@@ -53,6 +55,7 @@ const init = () => {
   });
 };
 
+/** Do a full game run, ends when game finished (win or die trying) */
 const startGame = async () => {
   console.clear();
   console.log('\nLoading..');
