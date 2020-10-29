@@ -20,6 +20,7 @@ npm start;
 
 ## Features
 
+- cli app
 - game menu, with option to change settings (e.g. pony name, difficulty)
 - full game run by pressing "Play"
 - bot plays the game until it wins or dies trying
