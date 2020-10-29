@@ -1,12 +1,12 @@
-<img width="800" src="./previews/preview.png" alt="Game preview"/>
+<img width="600" src="./previews/preview.png" alt="Game preview"/>
 
-# Pony Challenge Solution ([repo](https://github.com/petr166))
+# Pony Challenge Solution ([repo](https://github.com/petr166/pony-challenge))
 
 My solution for [the pony challenge](https://ponychallenge.trustpilot.com/index.html)
 
 ## What you need
 
-- NodeJS with npm/yarn (developed with node v14.9.0)
+- NodeJS with npm/yarn (built with node v14.9.0)
 
 ## How to run
 
